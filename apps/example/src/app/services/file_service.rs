@@ -31,16 +31,13 @@ impl FileService {
     ) -> Result<File> {
         let path = format!("{}/{}", self.storage_dir, stored_name);
         File::create(File {
-            id: None,
             user_id,
             original_name,
             stored_name,
             path,
             mime_type,
             size,
-            created_at: None,
-            updated_at: None,
-            deleted_at: None,
+            ..Default::default()
         })
         .await
         .map_err(|e| anyhow!("record failed: {}", e))

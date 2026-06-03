@@ -19,13 +19,10 @@ impl RoleService {
 
     pub async fn create(&self, name: String, slug: String, description: Option<String>) -> Result<Role> {
         Role::create(Role {
-            id: None,
             name,
             slug,
             description,
-            created_at: None,
-            updated_at: None,
-            deleted_at: None,
+            ..Default::default()
         })
         .await
         .map_err(|e| anyhow!("create failed: {}", e))

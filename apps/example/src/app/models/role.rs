@@ -5,7 +5,7 @@ use chrono::{DateTime, Utc};
 use super::user::User;
 use super::permission::Permission;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Model)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Model)]
 #[lara(table = "roles", primary_key = "id", soft_deletes)]
 pub struct Role {
     pub id: Option<i64>,

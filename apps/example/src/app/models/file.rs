@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use super::user::User;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Model)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Model)]
 #[lara(table = "files", primary_key = "id", soft_deletes)]
 pub struct File {
     pub id: Option<i64>,

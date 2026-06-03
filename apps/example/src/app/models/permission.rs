@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use super::role::Role;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Model)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Model)]
 #[lara(table = "permissions", primary_key = "id", soft_deletes)]
 pub struct Permission {
     pub id: Option<i64>,

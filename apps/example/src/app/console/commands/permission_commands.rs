@@ -55,13 +55,9 @@ impl Command for PermissionsSyncCommand {
                 .map_err(|e| anyhow::anyhow!("{}", e))?;
             if !exists {
                 Permission::create(Permission {
-                    id: None,
                     name: name.to_string(),
                     slug: slug.to_string(),
-                    description: None,
-                    created_at: None,
-                    updated_at: None,
-                    deleted_at: None,
+                    ..Default::default()
                 })
                 .await
                 .map_err(|e| anyhow::anyhow!("{}", e))?;

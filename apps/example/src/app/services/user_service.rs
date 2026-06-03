@@ -51,15 +51,11 @@ impl UserService {
         }
         let hashed = Self::hash_password(&password)?;
         User::create(User {
-            id: None,
             name,
             email,
             password: hashed,
             status: "active".into(),
-            email_verified_at: None,
-            created_at: None,
-            updated_at: None,
-            deleted_at: None,
+            ..Default::default()
         })
         .await
         .map_err(|e| anyhow!("create failed: {}", e))

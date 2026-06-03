@@ -8,7 +8,7 @@ Procedural macros for [Lara Rust](https://github.com/venomous-maker/lara-rust).
 Generates the `ModelMeta` impl for an ORM model. Configure with `#[lara(...)]`:
 
 ```rust
-#[derive(Debug, Clone, Serialize, Deserialize, Model)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, Model)]
 #[lara(table = "users", primary_key = "id", soft_deletes)]
 pub struct User {
     pub id: Option<i64>,
@@ -22,6 +22,13 @@ pub struct User {
 
 Struct attributes: `table`, `primary_key`, `timestamps` / `no_timestamps`, `soft_deletes`.
 Field attributes: `hidden`, `fillable`.
+
+> **Tip:** also `#[derive(Default)]` so you only set the fields you care about —
+> `id`, timestamps, and other `Option` columns fall back to `None`:
+>
+> ```rust
+> User::create(User { name: "Ada".into(), ..Default::default() }).await?;
+> ```
 
 ### `#[derive(Job)]`
 Generates `JobMeta` for a queueable job:

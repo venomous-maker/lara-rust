@@ -23,13 +23,9 @@ async fn seed_permissions() -> Result<()> {
     for (slug, name) in PERMS {
         if !Permission::query().where_eq("slug", *slug).exists().await? {
             Permission::create(Permission {
-                id: None,
                 name: name.to_string(),
                 slug: slug.to_string(),
-                description: None,
-                created_at: None,
-                updated_at: None,
-                deleted_at: None,
+                ..Default::default()
             }).await?;
         }
     }
@@ -40,13 +36,9 @@ async fn seed_roles() -> Result<()> {
     for (slug, name) in [("admin", "Administrator"), ("user", "User")] {
         if !Role::query().where_eq("slug", slug).exists().await? {
             Role::create(Role {
-                id: None,
                 name: name.to_string(),
                 slug: slug.to_string(),
-                description: None,
-                created_at: None,
-                updated_at: None,
-                deleted_at: None,
+                ..Default::default()
             }).await?;
         }
     }
@@ -78,15 +70,11 @@ async fn seed_users() -> Result<()> {
             .map_err(|e| lara_db::DbError::Other(e.to_string()))?;
 
         let user = User::create(User {
-            id: None,
             name: name.to_string(),
             email: email.to_string(),
             password: hashed,
             status: "active".to_string(),
-            email_verified_at: None,
-            created_at: None,
-            updated_at: None,
-            deleted_at: None,
+            ..Default::default()
         }).await?;
 
         if let Ok(role) = Role::query().where_eq("slug", role_slug).first_or_fail().await {
