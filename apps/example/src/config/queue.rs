@@ -1,4 +1,4 @@
-use std::env;
+use lara_core::env::{env, env_or};
 
 #[derive(Debug, Clone)]
 pub enum QueueDriver {
@@ -18,15 +18,15 @@ pub struct QueueConfig {
 
 impl Default for QueueConfig {
     fn default() -> Self {
-        let driver = match env::var("QUEUE_DRIVER").as_deref() {
-            Ok("database") => QueueDriver::Database,
-            Ok("redis")    => QueueDriver::Redis,
-            _              => QueueDriver::Sync,
+        let driver = match env("QUEUE_DRIVER").as_deref() {
+            Some("database") => QueueDriver::Database,
+            Some("redis")    => QueueDriver::Redis,
+            _                => QueueDriver::Sync,
         };
         Self {
             driver,
-            redis_url: env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
-            default_queue: env::var("QUEUE_NAME").unwrap_or_else(|_| "default".into()),
+            redis_url: env_or("REDIS_URL", "redis://127.0.0.1:6379"),
+            default_queue: env_or("QUEUE_NAME", "default"),
             retry_after_secs: 90,
             max_tries: 3,
         }
