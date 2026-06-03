@@ -1,0 +1,44 @@
+[package]
+name = "example"
+description = "Example Lara Rust application"
+version.workspace = true
+edition.workspace = true
+
+[[bin]]
+name = "server"
+path = "src/main.rs"
+
+[[bin]]
+name = "artisan"
+path = "src/artisan.rs"
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+axum.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+argon2.workspace = true
+jsonwebtoken.workspace = true
+
+lara-core.workspace = true
+lara-derive.workspace = true
+lara-db.workspace = true
+lara-console.workspace = true
+lara-router.workspace = true
+lara-validator.workspace = true
+lara-events.workspace = true
+lara-queue.workspace = true
+lara-cache.workspace = true
+lara-carbon.workspace = true
+lara-scheduler.workspace = true
+lara-middleware.workspace = true
+lara-mail.workspace = true
+lara-horizon.workspace = true

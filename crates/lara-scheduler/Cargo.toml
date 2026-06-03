@@ -1,0 +1,17 @@
+[package]
+name = "lara-scheduler"
+description = "Lara task scheduler with cron-like fluent API"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+lara-core.workspace = true
+lara-console.workspace = true

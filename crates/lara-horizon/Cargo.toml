@@ -1,0 +1,19 @@
+[package]
+name = "lara-horizon"
+description = "Lara Horizon — queue monitoring dashboard"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+axum.workspace = true
+lara-core.workspace = true
+lara-queue.workspace = true
+lara-cache.workspace = true

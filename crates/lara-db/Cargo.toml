@@ -1,0 +1,37 @@
+[package]
+name = "lara-db"
+description = "Lara ORM — Eloquent-style models, query builder, relations, migrations (Postgres/MySQL/SQLite/MongoDB)"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["postgres", "mysql", "sqlite", "mongodb"]
+postgres  = ["sqlx/postgres"]
+mysql     = ["sqlx/mysql"]
+sqlite    = ["sqlx/sqlite"]
+mongodb   = ["dep:mongodb", "dep:bson"]
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+slug.workspace = true
+regex.workspace = true
+
+sqlx.workspace = true
+mongodb = { workspace = true, optional = true }
+bson    = { workspace = true, optional = true }
+
+lara-derive   = { workspace = true }
+indexmap      = { workspace = true }
+futures-util  = { workspace = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }

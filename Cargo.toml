@@ -1,0 +1,119 @@
+[workspace]
+members = [
+    "crates/lara-core",
+    "crates/lara-derive",
+    "crates/lara-db",
+    "crates/lara-console",
+    "crates/lara-router",
+    "crates/lara-validator",
+    "crates/lara-events",
+    "crates/lara-queue",
+    "crates/lara-horizon",
+    "crates/lara-scheduler",
+    "crates/lara-cache",
+    "crates/lara-carbon",
+    "crates/lara-middleware",
+    "crates/lara-mail",
+    "apps/example",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Lara Rust Authors"]
+license = "MIT"
+repository = "https://github.com/lara-rust/lara"
+keywords = ["web", "framework", "orm", "laravel"]
+categories = ["web-programming", "database"]
+
+[workspace.dependencies]
+# Async runtime
+tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+# Async traits
+async-trait = "0.1"
+
+# Error handling
+thiserror = "2"
+anyhow = "1"
+
+# Logging / tracing
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# Date/time
+chrono = { version = "0.4", features = ["serde"] }
+
+# UUID
+uuid = { version = "1", features = ["v4", "serde"] }
+
+# HTTP
+axum = { version = "0.8", features = ["macros", "multipart"] }
+tower = { version = "0.5", features = ["full"] }
+tower-http = { version = "0.6", features = ["cors", "trace", "compression-full", "limit"] }
+hyper = { version = "1", features = ["full"] }
+http = "1"
+
+# SQL databases (sqlx supports postgres, mysql, sqlite)
+sqlx = { version = "0.8", features = [
+    "runtime-tokio",
+    "postgres",
+    "mysql",
+    "sqlite",
+    "chrono",
+    "uuid",
+    "json",
+    "migrate",
+] }
+
+# MongoDB
+mongodb = "3"
+bson = { version = "2", features = ["chrono-0_4"] }
+
+# Redis
+redis = { version = "0.27", features = ["tokio-comp", "connection-manager"] }
+deadpool-redis = "0.18"
+
+# Password hashing
+argon2 = "0.5"
+bcrypt = "0.15"
+
+# JWT
+jsonwebtoken = "9"
+
+# Regex
+regex = "1"
+
+# Slug
+slug = "0.1"
+
+# Ordered map (used by lara-db Row type)
+indexmap     = { version = "2", features = ["serde"] }
+futures-util = "0.3"
+
+# Proc-macro dependencies (used by lara-derive)
+proc-macro2 = "1"
+quote = "1"
+syn = { version = "2", features = ["full"] }
+
+# Internal workspace crates
+lara-core    = { path = "crates/lara-core" }
+lara-derive  = { path = "crates/lara-derive" }
+lara-db      = { path = "crates/lara-db" }
+lara-console = { path = "crates/lara-console" }
+lara-router  = { path = "crates/lara-router" }
+lara-validator = { path = "crates/lara-validator" }
+lara-events  = { path = "crates/lara-events" }
+lara-queue   = { path = "crates/lara-queue" }
+lara-cache   = { path = "crates/lara-cache" }
+lara-carbon  = { path = "crates/lara-carbon" }
+lara-scheduler = { path = "crates/lara-scheduler" }
+lara-middleware = { path = "crates/lara-middleware" }
+lara-horizon = { path = "crates/lara-horizon" }
+lara-mail    = { path = "crates/lara-mail" }

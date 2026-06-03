@@ -1,0 +1,29 @@
+# Rust build artifacts
+/target
+**/target
+**/*.rs.bk
+*.pdb
+
+# Cargo lock is kept for the workspace (binaries), see note in README
+
+# Databases / local storage
+*.db
+*.sqlite
+*.sqlite3
+/apps/example/database/*.db
+/storage
+/apps/example/storage
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Editor / OS
+.idea/
+.vscode/
+*.swp
+.DS_Store
+
+# Logs
+*.log

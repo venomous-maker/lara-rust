@@ -1,0 +1,29 @@
+[package]
+name = "lara-queue"
+description = "Lara job queue — sync, database, and Redis drivers"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[features]
+default = ["database", "redis-driver"]
+database     = []
+redis-driver = ["dep:redis", "dep:deadpool-redis"]
+
+[dependencies]
+tokio.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-trait.workspace = true
+thiserror.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+chrono.workspace = true
+uuid.workspace = true
+lara-core.workspace = true
+
+redis         = { workspace = true, optional = true }
+deadpool-redis = { workspace = true, optional = true }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["test-util"] }
