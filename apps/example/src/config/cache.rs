@@ -1,4 +1,4 @@
-use std::env;
+use lara_core::env::{env, env_or};
 
 #[derive(Debug, Clone)]
 pub enum CacheDriver {
@@ -18,16 +18,16 @@ pub struct CacheConfig {
 
 impl Default for CacheConfig {
     fn default() -> Self {
-        let driver = match env::var("CACHE_DRIVER").as_deref() {
-            Ok("file")  => CacheDriver::File,
-            Ok("redis") => CacheDriver::Redis,
-            _           => CacheDriver::Memory,
+        let driver = match env("CACHE_DRIVER").as_deref() {
+            Some("file")  => CacheDriver::File,
+            Some("redis") => CacheDriver::Redis,
+            _             => CacheDriver::Memory,
         };
         Self {
             driver,
-            prefix: env::var("CACHE_PREFIX").unwrap_or_else(|_| "lara_".into()),
-            redis_url: env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into()),
-            file_path: env::var("CACHE_PATH").unwrap_or_else(|_| "storage/cache".into()),
+            prefix: env_or("CACHE_PREFIX", "lara_"),
+            redis_url: env_or("REDIS_URL", "redis://127.0.0.1:6379"),
+            file_path: env_or("CACHE_PATH", "storage/cache"),
             default_ttl_secs: 3600,
         }
     }
