@@ -2,13 +2,16 @@ use std::time::Duration;
 use async_trait::async_trait;
 use mongodb::{
     bson::{doc, Bson, Document},
-    options::{ClientOptions, Credential, FindOptions},
-    Client, ClientSession, Database,
+    options::{ClientOptions, Credential, FindOptions, IndexOptions},
+    Client, ClientSession, Database, IndexModel,
 };
 use serde_json::Value as JsonValue;
 use futures_util::TryStreamExt;
 
-use super::{CompiledQuery, Driver, ExecResult, Grammar, MongoQuery};
+use super::{
+    mongo_sql::{self, Agg, MongoOp, SelectOp},
+    CompiledQuery, Driver, ExecResult, Grammar, MongoQuery,
+};
 use crate::{
     connection::config::MongoConfig,
     error::{DbError, Result},
@@ -69,6 +72,134 @@ impl MongoDriver {
 
     fn collection(&self, name: &str) -> mongodb::Collection<Document> {
         self.db().collection(name)
+    }
+
+    // ── SQL → Mongo execution (used by the SQL trait methods) ─────────────────
+
+    /// Run a parsed `SELECT` and return rows as JSON.
+    async fn run_select(&self, sel: SelectOp) -> Result<Vec<JsonValue>> {
+        let filter_doc = json_to_filter(&sel.filter);
+
+        // Aggregates → COUNT via `count_documents`, others via a `$group` pipeline.
+        if let Some((agg, alias)) = sel.aggregate {
+            if let Agg::Count = agg {
+                let n = self.collection(&sel.collection).count_documents(filter_doc).await?;
+                let mut m = serde_json::Map::new();
+                m.insert(alias, serde_json::json!(n));
+                return Ok(vec![JsonValue::Object(m)]);
+            }
+
+            let (op, field) = match &agg {
+                Agg::Sum(c) => ("$sum", c),
+                Agg::Avg(c) => ("$avg", c),
+                Agg::Min(c) => ("$min", c),
+                Agg::Max(c) => ("$max", c),
+                Agg::Count => unreachable!(),
+            };
+
+            let mut pipeline: Vec<Document> = Vec::new();
+            if !filter_doc.is_empty() {
+                pipeline.push(doc! { "$match": filter_doc });
+            }
+            let mut accumulator = Document::new();
+            accumulator.insert(op, Bson::String(format!("${}", field)));
+            let mut group = Document::new();
+            group.insert("_id", Bson::Null);
+            group.insert(alias.clone(), accumulator);
+            pipeline.push(doc! { "$group": group });
+
+            let mut cursor = self.collection(&sel.collection).aggregate(pipeline).await?;
+            let value = match cursor.try_next().await? {
+                Some(d) => d.get(alias.as_str()).cloned().map(bson_to_json).unwrap_or(JsonValue::Null),
+                // No matching rows: SUM is 0, the rest are NULL (matches SQL).
+                None => match agg {
+                    Agg::Sum(_) => serde_json::json!(0),
+                    _ => JsonValue::Null,
+                },
+            };
+            let mut m = serde_json::Map::new();
+            m.insert(alias, value);
+            return Ok(vec![JsonValue::Object(m)]);
+        }
+
+        // `SELECT DISTINCT <col>` → distinct values projected as documents.
+        if let Some(col) = sel.distinct {
+            let values = self
+                .collection(&sel.collection)
+                .distinct(col.as_str(), filter_doc)
+                .await?;
+            return Ok(values
+                .into_iter()
+                .map(|v| {
+                    let mut m = serde_json::Map::new();
+                    m.insert(col.clone(), bson_to_json(v));
+                    JsonValue::Object(m)
+                })
+                .collect());
+        }
+
+        // Plain find — reuse the existing MongoQuery path.
+        self.mongo_find_all(MongoQuery {
+            collection: sel.collection,
+            filter: sel.filter,
+            sort: sel.sort,
+            limit: sel.limit,
+            skip: sel.skip,
+            projection: sel.projection,
+        })
+        .await
+    }
+
+    /// Apply a parsed DDL/DML statement, returning affected-row semantics.
+    async fn run_exec(&self, op: MongoOp) -> Result<ExecResult> {
+        let none = |rows| ExecResult { rows_affected: rows, last_insert_id: None };
+        match op {
+            MongoOp::Insert { collection, doc } => {
+                self.mongo_insert(&collection, doc).await?;
+                Ok(none(1))
+            }
+            MongoOp::Update { collection, filter, set } => {
+                let n = self.mongo_update(&collection, filter, set).await?;
+                Ok(none(n))
+            }
+            MongoOp::Delete { collection, filter } => {
+                let n = self.mongo_delete(&collection, filter).await?;
+                Ok(none(n))
+            }
+            MongoOp::CreateCollection { name } => {
+                // Idempotent: collections are also created lazily on first write,
+                // so an "already exists" error here is harmless.
+                let _ = self.db().create_collection(name).await;
+                Ok(none(0))
+            }
+            MongoOp::DropCollection { name } => {
+                self.collection(&name).drop().await?;
+                Ok(none(0))
+            }
+            MongoOp::RenameCollection { from, to } => {
+                let cmd = doc! {
+                    "renameCollection": format!("{}.{}", self.db_name, from),
+                    "to": format!("{}.{}", self.db_name, to),
+                    "dropTarget": false,
+                };
+                self.client.database("admin").run_command(cmd).await?;
+                Ok(none(0))
+            }
+            MongoOp::CreateIndex { collection, columns, unique } => {
+                let mut keys = Document::new();
+                for c in &columns {
+                    keys.insert(c.clone(), 1);
+                }
+                let opts = IndexOptions::builder().unique(unique).build();
+                let model = IndexModel::builder().keys(keys).options(opts).build();
+                self.collection(&collection).create_index(model).await?;
+                Ok(none(0))
+            }
+            MongoOp::Noop => Ok(none(0)),
+            MongoOp::Select(_) => Err(DbError::UnsupportedOperation(
+                "execute() received a SELECT; use fetch_all/fetch_one".into(),
+            )),
+        }
     }
 
     /// Run a closure inside a multi-document transaction.
@@ -156,6 +287,16 @@ fn json_to_doc(v: JsonValue) -> Document {
     }
 }
 
+/// Like `json_to_doc`, but maps an empty/null filter to an empty document
+/// (match-everything) rather than failing.
+fn json_to_filter(v: &JsonValue) -> Document {
+    if v.is_null() || v == &serde_json::json!({}) {
+        Document::new()
+    } else {
+        json_to_doc(v.clone())
+    }
+}
+
 fn bson_to_json(bson: Bson) -> JsonValue {
     match bson {
         Bson::Null | Bson::Undefined => JsonValue::Null,
@@ -187,15 +328,35 @@ fn doc_to_json(doc: Document) -> JsonValue {
 
 #[async_trait]
 impl Driver for MongoDriver {
-    // SQL methods are not supported for MongoDB
-    async fn execute(&self, _q: CompiledQuery) -> Result<ExecResult> {
-        Err(DbError::UnsupportedOperation("Use mongo_insert/update/delete for MongoDB".into()))
+    // SQL path — framework-generated SQL is translated into native Mongo ops so
+    // schema/migrations/aggregates/raw queries work identically to SQL drivers.
+    async fn execute(&self, q: CompiledQuery) -> Result<ExecResult> {
+        let op = mongo_sql::parse(&q.sql, &q.params)?;
+        self.run_exec(op).await
     }
-    async fn fetch_all(&self, _q: CompiledQuery) -> Result<Vec<JsonValue>> {
-        Err(DbError::UnsupportedOperation("Use mongo_find_all for MongoDB".into()))
+
+    async fn fetch_all(&self, q: CompiledQuery) -> Result<Vec<JsonValue>> {
+        match mongo_sql::parse(&q.sql, &q.params)? {
+            MongoOp::Select(sel) => self.run_select(sel).await,
+            _ => Err(DbError::UnsupportedOperation(
+                "fetch_all() expects a SELECT statement".into(),
+            )),
+        }
     }
-    async fn fetch_one(&self, _q: CompiledQuery) -> Result<Option<JsonValue>> {
-        Err(DbError::UnsupportedOperation("Use mongo_find_one for MongoDB".into()))
+
+    async fn fetch_one(&self, q: CompiledQuery) -> Result<Option<JsonValue>> {
+        match mongo_sql::parse(&q.sql, &q.params)? {
+            MongoOp::Select(mut sel) => {
+                // Aggregates/distinct already yield a single logical row.
+                if sel.aggregate.is_none() && sel.distinct.is_none() {
+                    sel.limit = Some(1);
+                }
+                Ok(self.run_select(sel).await?.into_iter().next())
+            }
+            _ => Err(DbError::UnsupportedOperation(
+                "fetch_one() expects a SELECT statement".into(),
+            )),
+        }
     }
 
     // ── MongoDB operations ────────────────────────────────────────────────────
