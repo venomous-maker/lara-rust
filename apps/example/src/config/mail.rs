@@ -1,32 +1,28 @@
-use std::env;
+use lara_core::env::{env, env_or, env_or_parse};
 use lara_mail::{MailConfig, MailDriverKind, SmtpConfig, SmtpEncryption};
 
 pub fn mail_config() -> MailConfig {
-    let driver = match env::var("MAIL_DRIVER").as_deref() {
-        Ok("smtp")     => MailDriverKind::Smtp,
-        Ok("mailgun")  => MailDriverKind::Mailgun,
-        Ok("sendgrid") => MailDriverKind::Sendgrid,
-        Ok("null")     => MailDriverKind::Null,
-        _              => MailDriverKind::Log,
+    let driver = match env("MAIL_DRIVER").as_deref() {
+        Some("smtp")     => MailDriverKind::Smtp,
+        Some("mailgun")  => MailDriverKind::Mailgun,
+        Some("sendgrid") => MailDriverKind::Sendgrid,
+        Some("null")     => MailDriverKind::Null,
+        _                => MailDriverKind::Log,
     };
 
     MailConfig {
         driver,
-        from_address: env::var("MAIL_FROM_ADDRESS")
-            .unwrap_or_else(|_| "noreply@example.com".into()),
-        from_name: env::var("MAIL_FROM_NAME")
-            .unwrap_or_else(|_| "Lara App".into()),
+        from_address: env_or("MAIL_FROM_ADDRESS", "noreply@example.com"),
+        from_name: env_or("MAIL_FROM_NAME", "Lara App"),
         smtp: SmtpConfig {
-            host: env::var("MAIL_HOST").unwrap_or_else(|_| "127.0.0.1".into()),
-            port: env::var("MAIL_PORT").ok()
-                .and_then(|p| p.parse().ok())
-                .unwrap_or(1025),
-            username: env::var("MAIL_USERNAME").ok(),
-            password: env::var("MAIL_PASSWORD").ok(),
-            encryption: match env::var("MAIL_ENCRYPTION").as_deref() {
-                Ok("tls")      => SmtpEncryption::Tls,
-                Ok("starttls") => SmtpEncryption::StartTls,
-                _              => SmtpEncryption::None,
+            host: env_or("MAIL_HOST", "127.0.0.1"),
+            port: env_or_parse("MAIL_PORT", 1025),
+            username: env("MAIL_USERNAME"),
+            password: env("MAIL_PASSWORD"),
+            encryption: match env("MAIL_ENCRYPTION").as_deref() {
+                Some("tls")      => SmtpEncryption::Tls,
+                Some("starttls") => SmtpEncryption::StartTls,
+                _                => SmtpEncryption::None,
             },
         },
         ..MailConfig::default()
