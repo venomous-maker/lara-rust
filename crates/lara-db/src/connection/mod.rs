@@ -4,6 +4,8 @@ pub mod mysql;
 pub mod sqlite;
 #[cfg(feature = "mongodb")]
 pub mod mongodb;
+#[cfg(feature = "mongodb")]
+pub(crate) mod mongo_sql;
 
 use std::sync::Arc;
 use async_trait::async_trait;
@@ -120,8 +122,10 @@ impl Grammar {
     pub fn placeholder(&self, index: usize) -> String {
         match self {
             Grammar::Postgres => format!("${}", index),
-            Grammar::Mysql | Grammar::Sqlite => "?".to_string(),
-            Grammar::Mongodb => String::new(),
+            // MongoDB reuses the SQL path: the driver parses framework-generated
+            // SQL back into native operations, pulling values positionally from
+            // `?` placeholders (see `connection::mongo_sql`).
+            Grammar::Mysql | Grammar::Sqlite | Grammar::Mongodb => "?".to_string(),
         }
     }
 
