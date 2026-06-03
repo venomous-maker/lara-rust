@@ -1,4 +1,4 @@
-use std::env;
+use lara_core::env::{env_or, env_or_parse};
 
 #[derive(Debug, Clone)]
 pub struct AuthConfig {
@@ -11,10 +11,10 @@ pub struct AuthConfig {
 impl Default for AuthConfig {
     fn default() -> Self {
         Self {
-            jwt_secret: env::var("JWT_SECRET").unwrap_or_else(|_| "super-secret-jwt-key".into()),
-            jwt_ttl_hours: env::var("JWT_TTL").ok().and_then(|v| v.parse().ok()).unwrap_or(24),
-            refresh_ttl_hours: env::var("JWT_REFRESH_TTL").ok().and_then(|v| v.parse().ok()).unwrap_or(168),
-            bcrypt_rounds: env::var("BCRYPT_ROUNDS").ok().and_then(|v| v.parse().ok()).unwrap_or(12),
+            jwt_secret: env_or("JWT_SECRET", "super-secret-jwt-key"),
+            jwt_ttl_hours: env_or_parse("JWT_TTL", 24),
+            refresh_ttl_hours: env_or_parse("JWT_REFRESH_TTL", 168),
+            bcrypt_rounds: env_or_parse("BCRYPT_ROUNDS", 12),
         }
     }
 }
