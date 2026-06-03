@@ -17,8 +17,11 @@ use routes::{api::api_routes, web::web_routes};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    // Load `.env` before anything reads configuration.
+    lara_core::env::load();
+
     tracing_subscriber::fmt()
-        .with_env_filter(std::env::var("RUST_LOG").unwrap_or_else(|_| "info,example=debug".into()))
+        .with_env_filter(lara_core::env::env_or("RUST_LOG", "info,example=debug"))
         .init();
 
     // Boot the application: DB + mail facades, then all service providers.
@@ -35,8 +38,7 @@ async fn main() -> anyhow::Result<()> {
         .with_state(state.clone())
         .layer(TraceLayer::new_for_http());
 
-    let addr: SocketAddr = std::env::var("APP_ADDR")
-        .unwrap_or_else(|_| format!("0.0.0.0:{}", state.config.port))
+    let addr: SocketAddr = lara_core::env::env_or("APP_ADDR", format!("0.0.0.0:{}", state.config.port))
         .parse()?;
 
     tracing::info!("🦀 {} listening on http://{}", state.config.name, addr);
