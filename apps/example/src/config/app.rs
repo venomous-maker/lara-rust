@@ -1,4 +1,4 @@
-use std::env;
+use lara_core::env::{env_bool, env_or, env_or_parse};
 
 #[derive(Debug, Clone)]
 pub struct AppConfig {
@@ -14,13 +14,13 @@ pub struct AppConfig {
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
-            name: env::var("APP_NAME").unwrap_or_else(|_| "Lara App".into()),
-            env:  env::var("APP_ENV").unwrap_or_else(|_| "local".into()),
-            debug: env::var("APP_DEBUG").map(|v| v == "true").unwrap_or(true),
-            url:  env::var("APP_URL").unwrap_or_else(|_| "http://localhost:3000".into()),
-            port: env::var("APP_PORT").ok().and_then(|p| p.parse().ok()).unwrap_or(3000),
-            timezone: env::var("APP_TIMEZONE").unwrap_or_else(|_| "UTC".into()),
-            key: env::var("APP_KEY").unwrap_or_else(|_| "secret-change-me-in-production".into()),
+            name: env_or("APP_NAME", "Lara App"),
+            env:  env_or("APP_ENV", "local"),
+            debug: env_bool("APP_DEBUG", true),
+            url:  env_or("APP_URL", "http://localhost:3000"),
+            port: env_or_parse("APP_PORT", 3000),
+            timezone: env_or("APP_TIMEZONE", "UTC"),
+            key: env_or("APP_KEY", "secret-change-me-in-production"),
         }
     }
 }
