@@ -33,12 +33,38 @@ pub struct SqliteConfig {
     pub max_connections: u32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
 pub struct MongoConfig {
     pub uri: String,
     pub database: String,
     #[serde(default = "default_pool_size")]
     pub max_pool_size: u32,
+    #[serde(default)]
+    pub min_pool_size: Option<u32>,
+
+    // ── Authentication (applied when both username + password are set) ────────
+    #[serde(default)]
+    pub username: Option<String>,
+    #[serde(default)]
+    pub password: Option<String>,
+    /// The database to authenticate against (e.g. `admin`).
+    #[serde(default)]
+    pub auth_source: Option<String>,
+
+    // ── Replica set / topology ────────────────────────────────────────────────
+    /// Replica-set name — required for multi-document transactions.
+    #[serde(default)]
+    pub replica_set: Option<String>,
+    /// `Some(true)` forces a direct (standalone) connection;
+    /// `Some(false)` forces topology discovery (replica set). `None` = auto.
+    #[serde(default)]
+    pub direct_connection: Option<bool>,
+    /// Retry writes — typically `true` for replica sets, `false` for standalone.
+    #[serde(default)]
+    pub retry_writes: Option<bool>,
+    /// Server-selection timeout in milliseconds.
+    #[serde(default)]
+    pub server_selection_timeout_ms: Option<u64>,
 }
 
 impl SqlConfig {

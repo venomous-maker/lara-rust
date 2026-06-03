@@ -100,4 +100,5 @@ impl Driver for PostgresDriver {
 
     fn grammar(&self) -> Grammar { Grammar::Postgres }
     fn driver_name(&self) -> &'static str { "postgres" }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }

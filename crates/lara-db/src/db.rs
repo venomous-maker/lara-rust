@@ -128,4 +128,35 @@ impl Db {
             }
         }
     }
+
+    /// Run a MongoDB multi-document transaction on the default connection.
+    ///
+    /// **Requires** the default connection to be MongoDB **with a replica set**.
+    /// Returns `UnsupportedOperation` on SQL connections.
+    ///
+    /// The closure receives a [`MongoTxn`](crate::connection::mongodb::MongoTxn)
+    /// and must return it together with the result so the driver can commit:
+    ///
+    /// ```ignore
+    /// Db::mongo_transaction(|mut txn| async move {
+    ///     txn.insert("orders", json!({ "total": 42 })).await?;
+    ///     txn.update("stock", json!({ "sku": "A" }), json!({ "$inc": { "qty": -1 } })).await?;
+    ///     Ok((txn, ()))
+    /// }).await?;
+    /// ```
+    #[cfg(feature = "mongodb")]
+    pub async fn mongo_transaction<F, Fut, T>(f: F) -> Result<T>
+    where
+        F: FnOnce(crate::connection::mongodb::MongoTxn) -> Fut,
+        Fut: std::future::Future<Output = Result<(crate::connection::mongodb::MongoTxn, T)>>,
+    {
+        let conn = Self::connection();
+        let mongo = conn
+            .as_any()
+            .downcast_ref::<crate::connection::mongodb::MongoDriver>()
+            .ok_or_else(|| DbError::UnsupportedOperation(
+                "mongo_transaction requires a MongoDB connection".into(),
+            ))?;
+        mongo.transaction(f).await
+    }
 }

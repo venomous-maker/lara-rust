@@ -108,4 +108,5 @@ impl Driver for SqliteDriver {
 
     fn grammar(&self) -> Grammar { Grammar::Sqlite }
     fn driver_name(&self) -> &'static str { "sqlite" }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }

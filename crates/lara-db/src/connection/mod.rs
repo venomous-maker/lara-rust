@@ -102,6 +102,10 @@ pub trait Driver: Send + Sync {
     fn grammar(&self) -> Grammar;
     fn driver_name(&self) -> &'static str;
     fn is_mongodb(&self) -> bool { self.grammar() == Grammar::Mongodb }
+
+    /// Downcast hook — lets callers reach a concrete driver (e.g. `MongoDriver`)
+    /// for driver-specific features such as MongoDB sessions/transactions.
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

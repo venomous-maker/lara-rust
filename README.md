@@ -1,7 +1,8 @@
 # Lara Rust 🦀
 
-A Laravel-inspired web framework for Rust — a port of the [vest](https://github.com/) Node.js
-framework. Built as a Cargo workspace (monorepo) of focused crates plus a full example app.
+A Laravel-inspired web framework for Rust — a port of the
+[vest](https://github.com/VEN-LANG/vest) Node.js framework. Built as a Cargo workspace
+(monorepo) of focused crates plus a full example app.
 
 ## Workspace layout
 
@@ -74,6 +75,19 @@ cargo run -p example --bin artisan -- migrate
 cargo run -p example --bin artisan -- db:seed
 cargo run -p example --bin artisan -- permissions:list
 ```
+
+## Configuration
+
+The example app is configured entirely via environment variables — copy the
+template and edit it:
+
+```bash
+cp apps/example/.env.example apps/example/.env
+```
+
+The database driver is chosen from a single `DATABASE_URL` (the scheme picks
+Postgres / MySQL / MongoDB / SQLite) or discrete `DB_*` vars with `DB_CONNECTION`.
+MongoDB supports auth, replica sets, and direct-connection toggles for transactions.
 
 ## Building
 

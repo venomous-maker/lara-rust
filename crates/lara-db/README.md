@@ -39,6 +39,34 @@ let user = User::create(User { name: "Ada".into(), ..Default::default() }).await
 user.delete().await?; // soft delete when #[lara(soft_deletes)]
 ```
 
+## Transactions
+
+```rust
+// SQL — BEGIN / COMMIT / ROLLBACK around a closure
+Db::transaction(|| async {
+    User::create(user_a).await?;
+    User::create(user_b).await?;
+    Ok(())
+}).await?;
+```
+
+### MongoDB transactions
+
+Multi-document transactions **require a replica set** (set `replica_set` /
+`MONGO_REPLICA_SET`). Authentication, direct/standalone vs. replica-set topology,
+and retry-writes are all configurable on `MongoConfig`.
+
+```rust
+Db::mongo_transaction(|mut txn| async move {
+    txn.insert("orders", json!({ "total": 42 })).await?;
+    txn.update("stock", json!({ "sku": "A" }), json!({ "$inc": { "qty": -1 } })).await?;
+    Ok((txn, ())) // return the txn so the driver can commit
+}).await?;
+```
+
+`MongoConfig` knobs: `username`/`password`/`auth_source`, `replica_set`,
+`direct_connection`, `retry_writes`, `server_selection_timeout_ms`, pool sizing.
+
 ## Feature flags
 
 `postgres`, `mysql`, `sqlite`, `mongodb` (all enabled by default).

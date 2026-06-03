@@ -1,8 +1,9 @@
+use std::time::Duration;
 use async_trait::async_trait;
 use mongodb::{
     bson::{doc, Bson, Document},
-    options::{ClientOptions, FindOptions},
-    Client,
+    options::{ClientOptions, Credential, FindOptions},
+    Client, ClientSession, Database,
 };
 use serde_json::Value as JsonValue;
 use futures_util::TryStreamExt;
@@ -21,17 +22,124 @@ pub struct MongoDriver {
 impl MongoDriver {
     pub async fn connect(cfg: &MongoConfig) -> Result<Self> {
         let mut opts = ClientOptions::parse(&cfg.uri).await?;
+
+        // Pool sizing
         opts.max_pool_size = Some(cfg.max_pool_size);
+        if let Some(min) = cfg.min_pool_size {
+            opts.min_pool_size = Some(min);
+        }
+
+        // Replica set / topology
+        if let Some(rs) = &cfg.replica_set {
+            opts.repl_set_name = Some(rs.clone());
+        }
+        if let Some(direct) = cfg.direct_connection {
+            opts.direct_connection = Some(direct);
+        }
+        if let Some(rw) = cfg.retry_writes {
+            opts.retry_writes = Some(rw);
+        }
+        if let Some(ms) = cfg.server_selection_timeout_ms {
+            opts.server_selection_timeout = Some(Duration::from_millis(ms));
+        }
+
+        // Authentication (only when explicit credentials are provided and the URI
+        // didn't already carry them).
+        if opts.credential.is_none() {
+            if let (Some(user), Some(pass)) = (&cfg.username, &cfg.password) {
+                let mut cred = Credential::default();
+                cred.username = Some(user.clone());
+                cred.password = Some(pass.clone());
+                cred.source = cfg.auth_source.clone();
+                opts.credential = Some(cred);
+            }
+        }
+
         let client = Client::with_options(opts)?;
         Ok(Self { client, db_name: cfg.database.clone() })
     }
 
-    fn db(&self) -> mongodb::Database {
+    pub fn client(&self) -> &Client {
+        &self.client
+    }
+
+    fn db(&self) -> Database {
         self.client.database(&self.db_name)
     }
 
     fn collection(&self, name: &str) -> mongodb::Collection<Document> {
         self.db().collection(name)
+    }
+
+    /// Run a closure inside a multi-document transaction.
+    ///
+    /// **Requires a replica set** (set `replica_set` / `MONGO_REPLICA_SET`).
+    /// On `Ok` the transaction commits; on `Err` it aborts.
+    ///
+    /// ```ignore
+    /// mongo.transaction(|txn| async move {
+    ///     txn.insert("orders", json!({ "total": 42 })).await?;
+    ///     txn.update("stock", json!({ "sku": "A" }), json!({ "$inc": { "qty": -1 } })).await?;
+    ///     Ok(())
+    /// }).await?;
+    /// ```
+    pub async fn transaction<F, Fut, T>(&self, f: F) -> Result<T>
+    where
+        F: FnOnce(MongoTxn) -> Fut,
+        Fut: std::future::Future<Output = Result<(MongoTxn, T)>>,
+    {
+        let mut session = self.client.start_session().await?;
+        session.start_transaction().await?;
+
+        let txn = MongoTxn { db: self.db(), session };
+        match f(txn).await {
+            Ok((mut txn, value)) => {
+                txn.session.commit_transaction().await?;
+                Ok(value)
+            }
+            Err(e) => Err(e),
+        }
+    }
+}
+
+/// A handle to an in-progress MongoDB transaction. Every operation is bound to
+/// the transaction's session. Return it (with your result) from the closure so
+/// the driver can commit; drop it on error to abort.
+pub struct MongoTxn {
+    db: Database,
+    session: ClientSession,
+}
+
+impl MongoTxn {
+    pub async fn insert(&mut self, collection: &str, doc: JsonValue) -> Result<String> {
+        let coll = self.db.collection::<Document>(collection);
+        let bson_doc = json_to_doc(doc);
+        let res = coll.insert_one(bson_doc).session(&mut self.session).await?;
+        Ok(res.inserted_id.to_string())
+    }
+
+    pub async fn update(&mut self, collection: &str, filter: JsonValue, update: JsonValue) -> Result<u64> {
+        let coll = self.db.collection::<Document>(collection);
+        let filter_doc = json_to_doc(filter);
+        let update_doc = if update.get("$set").is_some() {
+            json_to_doc(update)
+        } else {
+            mongodb::bson::doc! { "$set": json_to_doc(update) }
+        };
+        let res = coll.update_many(filter_doc, update_doc).session(&mut self.session).await?;
+        Ok(res.modified_count)
+    }
+
+    pub async fn delete(&mut self, collection: &str, filter: JsonValue) -> Result<u64> {
+        let coll = self.db.collection::<Document>(collection);
+        let res = coll.delete_many(json_to_doc(filter)).session(&mut self.session).await?;
+        Ok(res.deleted_count)
+    }
+
+    /// Abort the transaction early.
+    pub async fn abort(mut self) -> Result<()> {
+        self.session.abort_transaction().await?;
+        Ok(())
     }
 }
 
@@ -173,4 +281,5 @@ impl Driver for MongoDriver {
     fn grammar(&self) -> Grammar { Grammar::Mongodb }
     fn driver_name(&self) -> &'static str { "mongodb" }
     fn is_mongodb(&self) -> bool { true }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }

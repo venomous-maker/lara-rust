@@ -109,4 +109,5 @@ impl Driver for MySqlDriver {
 
     fn grammar(&self) -> Grammar { Grammar::Mysql }
     fn driver_name(&self) -> &'static str { "mysql" }
+    fn as_any(&self) -> &dyn std::any::Any { self }
 }
